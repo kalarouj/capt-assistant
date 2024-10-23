@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Arabic Text Extractor</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>News PDF Extractor</h1>
+
+        <!-- File Upload with Drag & Drop -->
+        <div class="upload-box" id="dropArea">
+            <p>Drag & Drop PDF Here or Click to Select File</p>
+            <input type="file" id="pdfFile" accept="application/pdf" style="display: none;" />
+        </div>
+
+        <!-- Display Output Button -->
+        <button class="button" id="displayButton" disabled>Display Output</button>
+
+        <!-- Loading Spinner -->
+        <div class="spinner" id="loadingSpinner" style="display: none;"></div>
+
+        <!-- Output Box -->
+        <div class="output-box" id="outputBox" style="display: none;">
+            <pre class="text-content" id="outputText">No text yet.</pre>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls" id="controls" style="display: none;">
+            <button class="button" id="prevButton">Previous</button>
+            <span id="pageIndicator">Page 1</span>
+            <button class="button" id="nextButton">Next</button>
+        </div>
+
+        <!-- Copy Button -->
+        <button class="button" id="copyButton" style="display: none;">Copy Text</button>
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.6.172/pdf.min.js"></script>
+        <script src="scripts.js"></script>
+    </div>
+</body>
+</html>
