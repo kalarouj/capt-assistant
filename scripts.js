@@ -1,6 +1,9 @@
 // Initialize PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.6.172/pdf.worker.min.js';
 
+// Arabic days of the week
+const arabicDays = ['ﺍﻻﺣﺪ', 'ﺍﻻﺛﻨﻴﻦ', 'ﺍﻟﺜﻼﺛﺎﺀ', 'ﺍﻻﺭﺑﻌﺎﺀ', 'ﺍﻟﺨﻤﻴﺲ', 'ﺍﻟﺠﻤﻌﺔ', 'ﺍﻟﺴﺒﺖ'];
+
 // Get elements
 const pdfFileInput = document.getElementById('pdfFile');
 const dropArea = document.getElementById('dropArea');
@@ -44,12 +47,15 @@ function handleFileSelect() {
     const file = pdfFileInput.files[0];
     if (file && file.type === 'application/pdf') {
         displayButton.disabled = false;
-        dropArea.querySelector('p').textContent = file.name; // Update the text with the file name
-        console.log(`File selected: ${file.name}`);
+        dropArea.querySelector('p').textContent = file.name;
     } else {
-        dropArea.querySelector('p').textContent = 'Invalid file. Please upload a PDF.'; // Handle invalid file
-        console.log('Error: Please select a valid PDF file.');
+        dropArea.querySelector('p').textContent = 'Invalid file. Please upload a PDF.';
     }
+}
+
+// Shrink Drag-and-Drop Box
+function shrinkUploadBox() {
+    dropArea.classList.add('shrink');
 }
 
 // Display PDF Output
@@ -57,11 +63,11 @@ displayButton.addEventListener('click', () => {
     const file = pdfFileInput.files[0];
     if (file) {
         extractTextFromPDF(file);
-        document.getElementById('dropArea').classList.add('shrink'); // Shrink the upload box
+        shrinkUploadBox();
     }
 });
 
-// Extract Text from PDF with Proper Formatting
+// Extract Text from PDF and Process Dates
 async function extractTextFromPDF(file) {
     try {
         loadingSpinner.style.display = 'block';
@@ -73,9 +79,8 @@ async function extractTextFromPDF(file) {
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const content = await page.getTextContent();
-            let pageText = content.items.map(item => item.str).join('\n'); // Join with newlines
+            let pageText = content.items.map(item => item.str).join('\n');
 
-            // Clean up and process the text
             pageText = processLines(pageText);
 
             if (containsRequiredText(pageText) && !containsExcludedText(pageText)) {
@@ -96,27 +101,67 @@ async function extractTextFromPDF(file) {
     }
 }
 
-// Function to Trim and Correctly Combine Lines (Reversed)
+// Function to Process and Clean Lines, and Replace Date Line
 function processLines(text) {
-    const lines = text.split('\n').filter(line => line.trim() !== ''); // Split by lines and remove empty lines
+    const lines = text.split('\n').filter(line => line.trim() !== '');
 
     if (lines.length > 6) {
-        // Keep only the middle lines (after removing first 3 and last 3 lines)
-        const relevantLines = lines.slice(3, -3);
+        const relevantLines = lines.slice(3, -3); // Keep middle lines
 
-        // Merge the 2nd line at the END of the 3rd line (correct order)
+        // Merge the 2nd line at the END of the 3rd line
         if (relevantLines.length > 2) {
-            relevantLines[2] = `${relevantLines[2].trim()} ${relevantLines[1].trim()}`; // Append 2nd to 3rd
-            relevantLines.splice(1, 1); // Remove the original 2nd line after merging
+            relevantLines[2] = `${relevantLines[2].trim()} ${relevantLines[1].trim()}`;
+            relevantLines.splice(1, 1); // Remove original 2nd line
         }
 
-        return relevantLines.join('\n'); // Join the processed lines back into a string
+        // Find and replace lines after the "mentioned above" phrase
+        const mentionedAboveIndex = relevantLines.findIndex(line =>
+            line.includes('ﺍﻟﻤﻨﺎﻗﺼﺔ ﺍﻟﻤﺬﻛﻮﺭﻩ') && line.includes('ﺃﻋﻼﻩ')
+        );
+
+        if (mentionedAboveIndex >= 0) {
+            relevantLines.splice(mentionedAboveIndex + 1); // Remove everything after
+            const formattedLine = formatDateLine(relevantLines[mentionedAboveIndex + 1] || '');
+            relevantLines.push(formattedLine); // Add formatted date line
+        }
+
+        return relevantLines.join('\n');
     }
 
-    return ''; // Return an empty string if there aren't enough lines
+    return '';
 }
 
-// Check if the Page Contains the Required Arabic Text
+// Format the dynamic date line using the template
+function formatDateLine(line) {
+    const dateRegex = /(\d{4}-\d{2}-\d{2})/g;
+    const dates = [...line.matchAll(dateRegex)].map(match => match[0]);
+
+    if (dates.length === 2) {
+        let [date1, date2] = dates;
+
+        // Ensure date1 is the earlier date
+        if (new Date(date1) > new Date(date2)) {
+            [date1, date2] = [date2, date1];
+        }
+
+        const day1 = getArabicDay(date2); // Future date
+        const day2 = getArabicDay(date1); // Past date
+
+        // Format the line using the template
+        return `ﺇﻟﻲ ﻳﻮﻡ ${day1} ﺍﻟﻤﻮﺍﻓﻖ ${date2} ﺑﺪﻻ ﻣﻦ ﻳﻮﻡ ${day2} ﺍﻟﻤﻮﺍﻓﻖ ${date1}`;
+    }
+
+    return line;
+}
+
+// Get the Arabic day name from a given date
+function getArabicDay(dateString) {
+    const date = new Date(dateString);
+    const dayIndex = date.getDay();
+    return arabicDays[dayIndex];
+}
+
+// Check for Required Arabic Text
 function containsRequiredText(text) {
     const requiredPhrase1 = 'ﺇﻋــــــــﻼﻥ';
     const requiredPhrase2 = 'ﺑﺸﺄﻥ ﺍﻟﻤﻨﺎﻗﺼﺔ ﺭﻗﻢ';
@@ -129,15 +174,15 @@ function containsExcludedText(text) {
     return text.includes('WWW.CAPT.GOV.KW');
 }
 
-// Display the Current Page in the Output Box
+// Display Current Page
 function displayPage(index) {
     const page = extractedPages[index];
-    outputText.innerHTML = `<pre class="text-content">${page.text}</pre>`; // Use <pre> to preserve formatting
+    outputText.innerHTML = `<pre class="text-content">${page.text}</pre>`;
     pageIndicator.textContent = `Page ${index + 1} of ${extractedPages.length}`;
     outputBox.style.display = 'block';
 }
 
-// Navigation between Pages
+// Navigation
 prevButton.addEventListener('click', () => {
     if (currentPageIndex > 0) displayPage(--currentPageIndex);
 });
@@ -148,5 +193,5 @@ nextButton.addEventListener('click', () => {
 
 // Copy Text to Clipboard
 copyButton.addEventListener('click', () => {
-    navigator.clipboard.writeText(outputText.innerText).then(() => alert('Text copied!'));
+    navigator.clipboard.writeText(outputText.innerText);
 });
