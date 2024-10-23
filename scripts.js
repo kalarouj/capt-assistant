@@ -42,7 +42,7 @@ dropArea.addEventListener('drop', (e) => {
     }
 });
 
-// Handle File Selection and Update Upload Box Text
+// Handle File Selection
 function handleFileSelect() {
     const file = pdfFileInput.files[0];
     if (file && file.type === 'application/pdf') {
@@ -67,7 +67,7 @@ displayButton.addEventListener('click', () => {
     }
 });
 
-// Extract Text from PDF and Process Dates
+// Extract Text from PDF
 async function extractTextFromPDF(file) {
     try {
         loadingSpinner.style.display = 'block';
@@ -80,7 +80,6 @@ async function extractTextFromPDF(file) {
             const page = await pdf.getPage(i);
             const content = await page.getTextContent();
             let pageText = content.items.map(item => item.str).join('\n');
-
             pageText = processLines(pageText);
 
             if (containsRequiredText(pageText) && !containsExcludedText(pageText)) {
@@ -101,71 +100,51 @@ async function extractTextFromPDF(file) {
     }
 }
 
-// Function to Process and Clean Lines, and Replace Date Line
+// Process and Clean Lines
 function processLines(text) {
     const lines = text.split('\n').filter(line => line.trim() !== '');
-
     if (lines.length > 6) {
-        const relevantLines = lines.slice(3, -3); // Keep middle lines
-
-        // Merge the 2nd line at the END of the 3rd line
+        const relevantLines = lines.slice(3, -3);
         if (relevantLines.length > 2) {
             relevantLines[2] = `${relevantLines[2].trim()} ${relevantLines[1].trim()}`;
-            relevantLines.splice(1, 1); // Remove original 2nd line
+            relevantLines.splice(1, 1);
         }
-
-        // Find and replace lines after the "mentioned above" phrase
         const mentionedAboveIndex = relevantLines.findIndex(line =>
             line.includes('ﺍﻟﻤﻨﺎﻗﺼﺔ ﺍﻟﻤﺬﻛﻮﺭﻩ') && line.includes('ﺃﻋﻼﻩ')
         );
-
         if (mentionedAboveIndex >= 0) {
-            relevantLines.splice(mentionedAboveIndex + 1); // Remove everything after
-            const formattedLine = formatDateLine(relevantLines[mentionedAboveIndex + 1] || '');
-            relevantLines.push(formattedLine); // Add formatted date line
+            relevantLines.splice(mentionedAboveIndex + 1);
+            relevantLines.push(formatDateLine(relevantLines[mentionedAboveIndex + 1] || ''));
         }
-
         return relevantLines.join('\n');
     }
-
     return '';
 }
 
-// Format the dynamic date line using the template
+// Format Date Line
 function formatDateLine(line) {
     const dateRegex = /(\d{4}-\d{2}-\d{2})/g;
     const dates = [...line.matchAll(dateRegex)].map(match => match[0]);
-
     if (dates.length === 2) {
         let [date1, date2] = dates;
-
-        // Ensure date1 is the earlier date
-        if (new Date(date1) > new Date(date2)) {
-            [date1, date2] = [date2, date1];
-        }
-
-        const day1 = getArabicDay(date2); // Future date
-        const day2 = getArabicDay(date1); // Past date
-
-        // Format the line using the template
+        if (new Date(date1) > new Date(date2)) [date1, date2] = [date2, date1];
+        const day1 = getArabicDay(date2);
+        const day2 = getArabicDay(date1);
         return `ﺇﻟﻲ ﻳﻮﻡ ${day1} ﺍﻟﻤﻮﺍﻓﻖ ${date2} ﺑﺪﻻ ﻣﻦ ﻳﻮﻡ ${day2} ﺍﻟﻤﻮﺍﻓﻖ ${date1}`;
     }
-
     return line;
 }
 
-// Get the Arabic day name from a given date
+// Get Arabic Day Name
 function getArabicDay(dateString) {
     const date = new Date(dateString);
-    const dayIndex = date.getDay();
-    return arabicDays[dayIndex];
+    return arabicDays[date.getDay()];
 }
 
 // Check for Required Arabic Text
 function containsRequiredText(text) {
     const requiredPhrase1 = 'ﺇﻋــــــــﻼﻥ';
     const requiredPhrase2 = 'ﺑﺸﺄﻥ ﺍﻟﻤﻨﺎﻗﺼﺔ ﺭﻗﻢ';
-
     return text.includes(requiredPhrase1) && text.includes(requiredPhrase2);
 }
 
@@ -174,8 +153,9 @@ function containsExcludedText(text) {
     return text.includes('WWW.CAPT.GOV.KW');
 }
 
-// Display Current Page
+// Display Page
 function displayPage(index) {
+    currentPageIndex = index; // Update the current index
     const page = extractedPages[index];
     outputText.innerHTML = `<pre class="text-content">${page.text}</pre>`;
     pageIndicator.textContent = `Page ${index + 1} of ${extractedPages.length}`;
@@ -193,5 +173,8 @@ nextButton.addEventListener('click', () => {
 
 // Copy Text to Clipboard
 copyButton.addEventListener('click', () => {
-    navigator.clipboard.writeText(outputText.innerText);
+    const htmlContent = `<div style="font-family: 'Times New Roman'; font-size: 20px; font-weight: bold;">${outputText.innerHTML}</div>`;
+    navigator.clipboard.writeText(htmlContent).then(() => {
+        console.log('Formatted text copied to clipboard!');
+    }).catch(err => console.error('Error copying text: ', err));
 });
